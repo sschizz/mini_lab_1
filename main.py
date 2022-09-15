@@ -105,7 +105,8 @@ class Commands:
         
         def load_state(self):
             file_in = askopenfile(defaultextension=".json")
-            print(file_in)
+            if file_in is None:
+                return
             func_dict = json.load(file_in)
             if func_dict['list_of_function'] is not None:
                 self.list_of_function = func_dict['list_of_function']
@@ -190,6 +191,8 @@ class Commands:
     def load_from(self):
         self._state.load_state()
         self.parent_window.focus()
+        if len(self._state.list_of_function) == 0:
+            return
         diff = len(self._state.list_of_function) - len(self.parent_window.entries.entries_list) 
         for i in range(diff):
             self.parent_window.entries.add_entry()
