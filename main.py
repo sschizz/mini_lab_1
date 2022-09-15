@@ -6,7 +6,7 @@ import numpy as np
 
 from functools import partial
 from tkinter import *
-from tkinter.filedialog import asksaveasfile
+from tkinter.filedialog import asksaveasfile, askopenfile
 
 from matplotlib import pyplot as plt
 
@@ -31,11 +31,28 @@ class Entries:
         new_entry.icursor(0)
         new_entry.focus()
         new_entry.pack()
+        delete_button = self.parent_window.get_button_by_name('delete_func')
+        if delete_button:
+            delete_button.pack_forget()
         plot_button = self.parent_window.get_button_by_name('plot')
         if plot_button:
             plot_button.pack_forget()
+        self.parent_window.add_button('delete_func', 'Удалить функцию', 'delete_func', hot_key='<Control-d>')
         self.parent_window.add_button('plot', 'Plot', 'plot', hot_key='<Return>')
         self.entries_list.append(new_entry)
+
+    def delete_entry(self):
+        if len(self.entries_list) == 1:
+            mw = ModalWindow(self.parent_window, title='Название', labeltext='Думаю это удалять не нужно...')
+            ok_button = Button(master=mw.top, text='OK', command=mw.cancel)
+            mw.add_button(ok_button)
+        else:
+            entry = self.entries_list.pop()
+            entry.destroy()
+            plot_button = self.parent_window.get_button_by_name('plot')
+            if plot_button:
+                plot_button.pack_forget()
+            self.parent_window.add_button('plot', 'Plot', 'plot', hot_key='<Return>')
 
 
 # class for plotting (класс для построения графиков)
@@ -85,6 +102,14 @@ class Commands:
             if file_out is not None:
                 json.dump(tmp_dict, file_out)
             return self
+        
+        def load_state(self):
+            file_in = askopenfile(defaultextension=".json")
+            if file_in is None:
+                return
+            func_dict = json.load(file_in)
+            if func_dict['list_of_function'] is not None:
+                self.list_of_function = func_dict['list_of_function']
 
         def reset_state(self):
             self.list_of_function = []
@@ -156,6 +181,31 @@ class Commands:
     def save_as(self):
         self._state.save_state()
         return self
+
+    def delete_function(self, *args, **kwargs):
+        self.__forget_canvas()
+        self.__forget_navigation()
+        self.parent_window.entries.delete_entry()
+        return self
+
+    def load_from(self):
+        self._state.load_state()
+        self.parent_window.focus()
+        if len(self._state.list_of_function) == 0:
+            return
+        diff = len(self._state.list_of_function) - len(self.parent_window.entries.entries_list) 
+        for i in range(diff):
+            self.parent_window.entries.add_entry()
+        if diff < 0:
+            for i in range(abs(diff)):
+                self.parent_window.entries.delete_entry()
+        for i in range(len(self._state.list_of_function)):
+            entry = self.parent_window.entries.entries_list[i]
+            function = self._state.list_of_function[i]
+            entry.delete(0, len(entry.get()) + 1)
+            entry.insert(0, function)
+        self.plot()
+        return
 
 
 # class for buttons storage (класс для хранения кнопок)
@@ -231,6 +281,7 @@ class App(Tk):
 
         file_menu = Menu(menu)
         file_menu.add_command(label="Save as...", command=self.commands.get_command_by_name('save_as'))
+        file_menu.add_command(label="Load from...", command=self.commands.get_command_by_name('load_from'))
         menu.add_cascade(label="File", menu=file_menu)
 
 
@@ -248,6 +299,8 @@ if __name__ == "__main__":
     commands_main.add_command('plot', commands_main.plot)
     commands_main.add_command('add_func', commands_main.add_func)
     commands_main.add_command('save_as', commands_main.save_as)
+    commands_main.add_command('load_from', commands_main.load_from)
+    commands_main.add_command('delete_func', commands_main.delete_function)
     # init app (создаем экземпляр приложения)
     app = App(buttons_main, plotter_main, commands_main, entries_main)
     # init add func button (добавляем кнопку добавления новой функции)
